@@ -13,6 +13,8 @@ module SelectList
         , selected
         , singleton
         , toList
+        , head
+        , tail
         )
 
 {-| A `SelectList` is a nonempty list which always has exactly one element selected.
@@ -24,7 +26,7 @@ It is an example of a list [zipper](https://en.wikipedia.org/wiki/Zipper_(data_s
 
 ## Reading
 
-@docs toList, before, selected, after
+@docs toList, before, selected, after, head, tail
 
 
 ## Transforming
@@ -86,6 +88,67 @@ after (SelectList _ _ afterSel) =
 selected : SelectList a -> a
 selected (SelectList _ sel _) =
     sel
+
+
+{-| Return the head of the selectlist.
+
+    import SelectList
+
+    SelectList.fromLists [1, 2] 3 [4]
+        |> SelectList.head
+
+    == 1
+
+    SelectList.fromLists [] 1 [2]
+        |> SelectList.head
+
+    == 1
+
+-}
+head : SelectList a -> a
+head (SelectList beforeSel sel _) =
+    case (List.head beforeSel) of
+        Just a ->
+            a
+
+        Nothing ->
+            sel
+
+
+{-| Return the tail of the selectlist.
+if the tail does not contain the currently selected item, the head of the new list is selected.
+
+    import SelectList
+
+    SelectList.fromLists [1, 2] 3 [4]
+        |> SelectList.tail
+
+    == [2] 3 [4]
+
+    SelectList.fromLists [] 1 [2]
+        |> SelectList.tail
+
+    == [] 2 []
+
+    SelectList.fromLists [] 1 []
+        |> SelectList.tail
+
+    == Nothing
+
+-}
+tail : SelectList a -> Maybe (SelectList a)
+tail (SelectList beforeSel sel afterSel) =
+    case beforeSel of
+        [] ->
+            case afterSel of
+                [] ->
+                    Nothing
+
+                x :: xs ->
+                    Just <| fromLists [] x xs
+
+        x :: xs ->
+            Just <| fromLists xs sel afterSel
 
 
 {-| A `SelectList` containing exactly one element.
@@ -205,10 +268,8 @@ selectHelp isSelectable beforeList selectedElem afterList =
         ( [], first :: rest ) ->
             if isSelectable selectedElem then
                 Just ( beforeList, selectedElem, afterList )
-
             else if isSelectable first then
                 Just ( beforeList ++ [ selectedElem ], first, rest )
-
             else
                 case selectHelp isSelectable [] first rest of
                     Nothing ->
@@ -220,7 +281,6 @@ selectHelp isSelectable beforeList selectedElem afterList =
         ( first :: rest, _ ) ->
             if isSelectable first then
                 Just ( [], first, rest ++ selectedElem :: afterList )
-
             else
                 case selectHelp isSelectable rest selectedElem afterList of
                     Nothing ->
